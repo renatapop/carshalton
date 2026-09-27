@@ -277,9 +277,9 @@
 
     .primary-times {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: 1fr;
       gap: 18px;
-      align-items: end;
+      align-items: start;
     }
 
     .departure {
@@ -302,18 +302,19 @@
     }
 
     .leave-box {
-      min-width: 144px;
+      width: 100%;
+      min-width: 0;
       padding: 13px 14px;
       border: 1px solid rgba(49, 95, 125, 0.16);
       border-radius: var(--radius);
       background: var(--panel-soft);
-      text-align: right;
+      text-align: left;
     }
 
     .leave-value {
       color: var(--blue);
       font-size: clamp(1.18rem, 3vw, 2rem);
-      line-height: 1;
+      line-height: 1.08;
       font-weight: 650;
     }
 
@@ -818,7 +819,7 @@
           return response.json();
         }
 
-        if (response.status === 503 && attempt < 2) {
+        if ((response.status === 429 || response.status === 503) && attempt < 2) {
           try {
             const error = await response.json();
             await sleep(Number(error.retry_after_seconds || 1) * 1000);
@@ -910,10 +911,21 @@
       return service.data_source !== "timetable";
     }
 
+    function hasEngineeringWorkPattern(board) {
+      const services = board.results || [];
+      const hasReplacementBus = services.some((service) => service.service_class === "bus");
+      const hasCancelledPassenger = services.some((service) =>
+        service.service_class === "passenger" && service.status === "cancelled"
+      );
+      return hasReplacementBus && hasCancelledPassenger;
+    }
+
     function livePassengerServices(board) {
+      const engineeringWork = hasEngineeringWorkPattern(board);
       return (board.results || []).filter((service) =>
         service.service_class === "passenger" &&
         !service.not_for_display &&
+        (!engineeringWork || service.status === "cancelled") &&
         isTrustworthyPassengerService(service)
       );
     }
@@ -1018,7 +1030,7 @@
       return {
         source: "traini.ac",
         generatedAt,
-        refreshAfterSeconds: 30,
+        refreshAfterSeconds: 60,
         outRoutes: [
           normalizeDirectOutRoute(
             "Victoria",
