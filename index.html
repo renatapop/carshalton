@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Carshalton Departures</title>
   <meta name="description" content="A tablet-friendly Carshalton departures board draft.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23fbfbfa'/%3E%3Cpath d='M17 16h30a5 5 0 0 1 5 5v19a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6V21a5 5 0 0 1 5-5Z' fill='%23040457'/%3E%3Cpath d='M20 23h24v6H20zM20 34h13v5H20zM38 34h6v5h-6z' fill='%23fbfbfa'/%3E%3Cpath d='M22 48l-5 8M42 48l5 8' stroke='%23040457' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
@@ -614,12 +617,14 @@
     </section>
 
     <footer class="footer">
-      <span>Design draft</span>
+      <span id="footerStatus">Design draft</span>
+      <span id="buildVersion">v2026.09.27.1905</span>
     </footer>
   </main>
 
   <script>
     const WALK_MINUTES = 10;
+    const BUILD_VERSION = "v2026.09.27.1905";
     let liveBoard = null;
 
     const headingImages = {
@@ -740,7 +745,9 @@
       outUpdated: document.querySelector("#outUpdated"),
       backUpdated: document.querySelector("#backUpdated"),
       outCards: document.querySelector("#outCards"),
-      backCards: document.querySelector("#backCards")
+      backCards: document.querySelector("#backCards"),
+      footerStatus: document.querySelector("#footerStatus"),
+      buildVersion: document.querySelector("#buildVersion")
     };
 
     const timeFormat = new Intl.DateTimeFormat("en-GB", {
@@ -1030,6 +1037,7 @@
       return {
         source: "traini.ac",
         generatedAt,
+        checkedAt: new Date().toISOString(),
         refreshAfterSeconds: 60,
         outRoutes: [
           normalizeDirectOutRoute(
@@ -1306,10 +1314,16 @@
     function render() {
       const now = new Date();
       const updatedAt = liveBoard?.generatedAt ? new Date(liveBoard.generatedAt) : now;
+      const checkedAt = liveBoard?.checkedAt ? new Date(liveBoard.checkedAt) : null;
+      const updatedLabel = checkedAt
+        ? "Data from API " + timeFormat.format(updatedAt) + " · page opened " + timeFormat.format(checkedAt)
+        : "Updated " + timeFormat.format(updatedAt);
       els.clockTime.textContent = timeFormat.format(now);
       els.clockDate.textContent = dateFormat.format(now);
-      els.outUpdated.textContent = "Updated " + timeFormat.format(updatedAt);
-      els.backUpdated.textContent = "Updated " + timeFormat.format(updatedAt);
+      els.outUpdated.textContent = updatedLabel;
+      els.backUpdated.textContent = updatedLabel;
+      els.footerStatus.textContent = liveBoard?.source ? "Live via " + liveBoard.source : "Design draft";
+      els.buildVersion.textContent = BUILD_VERSION;
       renderOut(now);
       renderBack(now);
     }
@@ -1325,6 +1339,7 @@
               throw new Error("Local API unavailable");
             }
             liveBoard = await response.json();
+            liveBoard.checkedAt = new Date().toISOString();
           } catch {
             liveBoard = await buildDirectBoard();
           }
